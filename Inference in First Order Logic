@@ -1,0 +1,324 @@
+import sys
+
+def split_predicate(rule):
+    predicates=[]
+    if len(rule.split('=>'))>1:
+        lhs = rule.split('=>')[0]
+        rhs = rule.split('=>')[1]
+        lhs_predicates = lhs.split('&')
+        for i in range(0,len(lhs_predicates)):
+            predicates.append(lhs_predicates[i])
+        predicates.append(rhs)
+    else:
+        predicates.append(rule)
+    return predicates
+
+def isArgMatch(x,y):
+    if len(x.split(',')) != len(y.split(',')):
+        return False
+    x_arg = x.split(',')
+    y_arg = y.split(',')
+    if len(x_arg)>1:
+        if (not x_arg[0].islower()) and (not y_arg[0].islower()):
+            if x_arg[0] == y_arg[0]:
+                if len(x_arg)>1:
+                    if (not x_arg[1].islower()) and (not y_arg[1].islower()):
+                        if x_arg[1] == y_arg[1]:
+                            return True
+                        else:
+                            return False
+                    else:
+                        return True
+                else:
+                    return True
+            else:
+                return False
+        elif (not x_arg[1].islower()) and (not y_arg[1].islower()):
+            if x_arg[1] == y_arg[1]:
+                return True
+            else:
+                return False
+        else:
+            # x[0/1] is x and y[1/0] is x
+            # if x_arg[0].islower():
+            #     position_var_args = 0
+            # elif x_arg[1].islower():
+            #     position_var_args = 1
+            return True
+    else:
+        if (not x_arg[0].islower()) and (not y_arg[0].islower()):
+            if x_arg[0] == y_arg[0]:
+                return True
+            else:
+                return False
+        else:
+            # position_var_args = 0
+            return True
+
+def substitute(x,y):
+    ans = []
+    x_str = ''
+    for i in range(0,len(x)):
+        x_str = ''.join(x[i])
+        x_args = x_str.split(',')
+        y_args = y.split(',')
+        if x_args[0].islower() and (not y_args[0].islower()):
+            ans.append(y_args[0])
+        elif (not x_args[0].islower()) and y_args[0].islower():
+            ans.append(x_args[0])
+        elif (not x_args[0].islower()) and (not y_args[0].islower()):
+            if x_args[0] == y_args[0] and len(x_args) == 1:
+                ans.append(x_args[0])
+        if len(x_args) > 1:
+            if x_args[1].islower() and (not y_args[1].islower()):
+                ans.append(y_args[1])
+            elif (not x_args[1].islower()) and y_args[1].islower():
+                ans.append(x_args[1])
+    return ans
+
+def BC(KB,goal,theta=[]):
+    global position_var_args
+    isFound = False
+    substitute_lhs = []
+    satisfy_rule_theta = []
+    log_file.write('Query: ' + goal + '\n')
+    for i in range(0,m):
+        predicates = split_predicate(KB[i])
+        last_predicate = ''.join(predicates[-1:])
+        if last_predicate.split('(')[0] == goal.split('(')[0]:
+            last_predicate_args = last_predicate.split('(')[1]
+            last_predicate_args = last_predicate_args[:-1]
+            goal_args = goal.split('(')[1]
+            goal_args = goal_args[:-1]
+            if isArgMatch(last_predicate_args,goal_args):
+                isFound = True
+                master_theta = []
+                dict = {}
+                if len(predicates)>1:
+                    log_file.write('Query: ' + KB[i] + '\n')
+                for j in range(0,len(predicates)-1):
+                    theta_lhs = []
+                    theta_lhs = BC(KB,predicates[j],theta)
+                    master_theta.append(theta_lhs)
+                ### Check for all list of list find the common one's
+                for each_list in master_theta:
+                    for each_item in each_list:
+                        if each_item in dict:
+                            dict[each_item] = dict[each_item]+1
+                        else:
+                            dict[each_item] = 1
+                for each_item_dict in dict:
+                    if dict[each_item_dict] == len(master_theta):
+                        satisfy_rule_theta.append(each_item_dict)
+
+                if len(predicates) == 1:
+                    isFound = True
+                    predicates_str = ''.join(predicates[0])
+                    predicates_args = predicates_str.split('(')[1]
+                    predicates_args = predicates_args[:-1]
+                    substitute_lhs.append(predicates_args)
+
+    q_args = q.split('(')[1]
+    q_args = q_args[:-1]
+    q_args_list = q_args.split(',')
+    # if position_var_args == 0:
+    temp_list = []
+    for each in substitute_lhs:
+        substitute_lhs_str = ''.join(each)
+        temp_list.append(substitute_lhs_str.split(',')[position_var_args])
+    if (not q_args_list[position_var_args].islower()) and (q_args_list[position_var_args] not in temp_list):
+        isFound = False
+    mylist = []
+    if isFound == True:
+        ans = substitute(substitute_lhs, goal_args)
+        ans.sort()
+        for item in ans:
+            if item not in theta:
+                theta.append(item)
+        myset = set(ans+satisfy_rule_theta)
+        mylist = list(myset)
+        mylist.sort()
+        log_file.write(goal + ': True: ' + str(mylist)+'\n')
+    else:
+        log_file.write(goal + ': False\n')
+    return mylist
+
+def BC_new(KB_new,goal,theta=[]):
+    global position_var_args
+    global rule_with_constant
+    isFound = False
+    substitute_lhs = []
+    satisfy_rule_theta = []
+    log_file.write('Query: ' + goal + '\n')
+    for i in range(0, m):
+        predicates = split_predicate(KB_new[i])
+        last_predicate = ''.join(predicates[-1:])
+        if last_predicate.split('(')[0] == goal.split('(')[0]:
+            last_predicate_args = last_predicate.split('(')[1]
+            last_predicate_args = last_predicate_args[:-1]
+            goal_args = goal.split('(')[1]
+            goal_args = goal_args[:-1]
+
+            last_predicate_args_str = last_predicate_args.split(',')
+            goal_args_str = goal_args.split(',')
+            q_args = rule_with_constant.split('(')[1]
+            q_args = q_args[:-1]
+            q_args_list = q_args.split(',')
+
+            if last_predicate_args_str[position_var_args] == q_args_list[position_var_args]:
+                if len(last_predicate_args_str)>1:
+                    if last_predicate_args_str[abs(1-position_var_args)] == goal_args_str[abs(1-position_var_args)]:
+                        log_file.write(goal + ': True' + '\n')
+                        if last_predicate_args_str[position_var_args] not in theta:
+                            theta.append(last_predicate_args_str[position_var_args])
+                        return theta
+                else:
+                    log_file.write(goal + ': True' + '\n')
+                    if last_predicate_args_str[position_var_args] not in theta:
+                        theta.append(last_predicate_args_str[position_var_args])
+                    return theta
+            if len(predicates)>1:
+                if isArgMatch(last_predicate_args, goal_args):
+                    isFound = True
+                    master_theta = []
+                    dict = {}
+                    if len(predicates) > 1:
+                        log_file.write('Query: ' + KB_new[i] + '\n')
+                    for j in range(0, len(predicates) - 1):
+                        theta_lhs = []
+                        theta_lhs = BC_new(KB_new, predicates[j], theta)
+                        master_theta.append(theta_lhs)
+                    ### Check for all list of list find the common one's
+                    for each_list in master_theta:
+                        if not each_list:
+                            isFound = False
+                        if type(each_list) == list:
+                            for each_item in each_list:
+                                if each_item in dict:
+                                    dict[each_item] = dict[each_item] + 1
+                                else:
+                                    dict[each_item] = 1
+                    for each_item_dict in dict:
+                        if dict[each_item_dict] == len(master_theta):
+                            satisfy_rule_theta.append(each_item_dict)
+
+                    if len(predicates) == 1:
+                        isFound = True
+                        predicates_str = ''.join(predicates[0])
+                        predicates_args = predicates_str.split('(')[1]
+                        predicates_args = predicates_args[:-1]
+                        substitute_lhs.append(predicates_args)
+
+    q_args = q.split('(')[1]
+    q_args = q_args[:-1]
+    q_args_list = q_args.split(',')
+    # if position_var_args == 0:
+    temp_list = []
+    for each in substitute_lhs:
+        substitute_lhs_str = ''.join(each)
+        temp_list.append(substitute_lhs_str.split(',')[position_var_args])
+
+    mylist = []
+    if isFound == True:
+        ans = substitute(substitute_lhs, goal_args)
+        ans.sort()
+        for item in ans:
+            if item not in theta:
+                theta.append(item)
+        myset = set(ans + satisfy_rule_theta)
+        mylist = list(myset)
+        mylist.sort()
+        log_file.write(goal + ': True' + '\n')
+    else:
+        log_file.write(goal + ': False' + '\n')
+    return mylist
+
+def main():
+    global m
+    global log_file
+    global q
+    global position_var_args
+    global allConstant
+    global rule_with_constant
+    allConstant = False
+    position_var_args = 0
+    log_file = open('output.txt', 'w')
+    fopen = open(str(sys.argv[1]), 'U')
+    q = fopen.readline()[:-1]
+    m = int(fopen.readline()[:-1])
+    KB=[]
+    KB_new = []
+    for i in range(0,m):
+        KB.append(fopen.readline()[:-1])
+
+    compund_q = q.split('&')
+    master_theta =[]
+    dict={}
+    satisfy_rule_theta = []
+    if len(compund_q)>1:
+        log_file.write('Query: ' + q + '\n')
+    for n in range(0,len(compund_q)):
+        q_args = compund_q[n].split('(')[1]
+        q_args = q_args[:-1]
+        q_args_list = q_args.split(',')
+
+        if q_args_list[0].islower():
+            position_var_args = 0
+        elif len(q_args_list)>1:
+            if q_args_list[1].islower():
+                position_var_args = 1
+            else:
+                allConstant = True
+                rule_with_constant = compund_q[n]
+        else:
+            allConstant = True
+            rule_with_constant = compund_q[n]
+        if allConstant == True:
+            for i in range(0, m):
+                predicates = split_predicate(KB[i])
+                last_predicate = ''.join(predicates[-1:])
+                if last_predicate.split('(')[0] == q.split('(')[0]:
+                    last_predicate_args = last_predicate.split('(')[1]
+                    last_predicate_args = last_predicate_args[:-1]
+                    if last_predicate_args.split(',')[0].islower():
+                        position_var_args = 0
+                        break
+                    if len(last_predicate_args) > 1:
+                        if last_predicate_args.split(',')[1].islower():
+                            position_var_args = 1
+                            break
+        theta_lhs = []
+        if allConstant == True:
+            for i in range(0, m):
+                predicates = split_predicate(KB[i])
+                if len(predicates) == 1:
+                    KB_new.append(KB[i])
+            for i in range(0, m):
+                predicates = split_predicate(KB[i])
+                if len(predicates) != 1:
+                    KB_new.append(KB[i])
+            theta_lhs = BC_new(KB_new, compund_q[n])
+            master_theta.append(theta_lhs)
+        else:
+            theta_lhs = BC(KB,compund_q[n])
+            master_theta.append(theta_lhs)
+
+    for each_list in master_theta:
+        for each_item in each_list:
+            if each_item in dict:
+                dict[each_item] = dict[each_item] + 1
+            else:
+                dict[each_item] = 1
+    for each_item_dict in dict:
+        if dict[each_item_dict] == len(master_theta):
+            satisfy_rule_theta.append(each_item_dict)
+
+    if len(compund_q)>1:
+        if satisfy_rule_theta:
+            log_file.write(q+': True: '+str(satisfy_rule_theta)+'\n')
+        else:
+            log_file.write(q+': False'+'\n')
+
+
+if __name__ == '__main__':
+    main()
