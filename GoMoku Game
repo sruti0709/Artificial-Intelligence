@@ -1,0 +1,733 @@
+import sys
+from copy import deepcopy
+import re
+
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
+
+def isTerminal(someboard):
+    for i in range(0,board_size):
+        for j in range(0,board_size):
+            if someboard[i][j] == '.':
+                return False
+    return True
+
+def all_possible_moves(someboard):
+    ###
+    # Creating a temporary board with pad '.' in all the sides
+    ###
+    temp_board = [[] for i in range(board_size + 2)]
+
+    for i in range(0, board_size + 2):
+        temp_board[0].append('.')
+        temp_board[board_size + 1].append('.')
+
+    for i in range(1, board_size + 1):
+        for j in range(0, board_size + 2):
+            if j == 0 or j == board_size + 1:
+                temp_board[i].append('.')
+            else:
+                temp_board[i].append(someboard[i - 1][j - 1])
+
+    ###
+    # Find all possible moves from this state
+    ###
+
+    # possible_move.append(chr(j+65-1)+str(board_size - i + 1))
+    possible_move = []
+    position = []
+    for i in range(0, board_size + 2):
+        for j in range(0, board_size + 2):
+            if temp_board[i][j] == 'w' or temp_board[i][j] == 'b':
+                position.append(chr(j + 65 - 1) + str(board_size - i + 1))
+                possible_move.append(chr(j + 65 - 1) + str(board_size - i - 1 + 1))
+                possible_move.append(chr(j + 65 - 1) + str(board_size - i + 1 + 1))
+                possible_move.append(chr(j - 1 + 65 - 1) + str(board_size - i + 1))
+                possible_move.append(chr(j + 1 + 65 - 1) + str(board_size - i + 1))
+                possible_move.append(chr(j + 1 + 65 - 1) + str(board_size - i - 1 + 1))
+                possible_move.append(chr(j - 1 + 65 - 1) + str(board_size - i - 1 + 1))
+                possible_move.append(chr(j + 1 + 65 - 1) + str(board_size - i + 1 + 1))
+                possible_move.append(chr(j - 1 + 65 - 1) + str(board_size - i + 1 + 1))
+
+    possible_move = list(set(possible_move))
+    ###
+    # Walkthrough list and remove the edge possibilities
+    ###
+    temp_pos_move = list(possible_move)
+    length = len(temp_pos_move)
+
+    # for each_possibility in possible_move:
+    for i in range(length):
+        each_possibility = temp_pos_move[i]
+        if each_possibility[:1]==str('@') or each_possibility[:1]==str(chr(board_size + 1 + 64)) or int(each_possibility[1:])==0 or int(each_possibility[1:])==(board_size + 1):
+            possible_move.remove(each_possibility)
+    ###
+    # Remove non-empty cells
+    ###
+    for each in position:
+        if each in possible_move:
+            possible_move.remove(each)
+
+    # print (len(possible_move))
+    sorted_possible_move = []
+    for x in sorted_nicely(possible_move):
+        sorted_possible_move.append(x)
+    return sorted_possible_move
+
+def createcalculate(oppose,count):
+    if count == 5:
+        return 50000
+    elif count == 4:
+        if oppose == 0:
+            return 5000
+        elif oppose == 1:
+            return 1000
+        else:
+            return  0
+    elif count == 3:
+        if oppose == 0:
+            return 50
+        elif oppose == 1:
+            return 10
+        else:
+            return 0
+    elif count == 2:
+        if oppose == 0:
+            return 5
+        elif oppose == 1:
+            return 1
+        else:
+            return 0
+    else:
+        return 0
+
+def blockcalculate(oppose,count):
+    if count == 3:
+        if oppose == 1:
+            return 500
+        elif oppose == -1:
+            return 100
+        else:
+            return 0
+    elif count == 4:
+        if oppose == -1:
+            return 10000
+        else:
+            return 0
+    else:
+        return 0
+
+def evaluation_function(board,position,maximizingPlayer):
+    y = position[:1]
+    x = position[1:]
+    x = board_size - int(x)
+    y = ord(y)- 65
+    line_val = 0
+    value = 0
+    oppose = 0
+    count = 0
+    player = board[x][y]    # player will be 'w' or 'b'
+
+    if player == 'w':
+        opponent = 'b'
+    else:
+        opponent = 'w'
+
+    for i in range(x,-1,-1):
+        if board[i][y] == player:
+            count = count + 1
+        elif board[i][y] == opponent:
+            oppose = 1
+            break
+        else:
+            break
+
+    for i in range(x+1,board_size):
+        if board[i][y] == player:
+            count = count + 1
+        elif board[i][y] == opponent:
+            if oppose == 1:
+                oppose = -1
+            elif oppose == 0:
+                oppose = 1
+            break
+        else:
+            break
+
+    value = createcalculate(oppose, count)
+    if maximizingPlayer == False:
+        value = -value
+    # print (value)
+
+    count = 0
+    oppose = 0
+    for j in range(y, -1, -1):
+        if board[x][j] == player:
+            count = count + 1
+        elif board[x][j] == opponent:
+            oppose = 1
+            break
+        else:
+            break
+
+    for j in range(y + 1, board_size):
+        if board[x][j] == player:
+            count = count + 1
+        elif board[x][j] == opponent:
+            if oppose == 1:
+                oppose = -1
+            elif oppose == 0:
+                oppose = 1
+            break
+        else:
+            break
+    line_val = createcalculate(oppose,count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value - line_val)
+
+    ###
+    # this is for '\'
+    ###
+    count = 0
+    oppose = 0
+    j = y
+    for i in range(x,-1,-1):
+        if j < 0:
+            break
+        if board[i][j] == player:
+            count = count + 1
+        elif board[i][j] == opponent:
+            oppose = 1
+            break
+        else:
+            break
+        j = j-1
+
+    j=y+1
+    for i in range(x+1,board_size):
+        if j > board_size-1:
+            break
+        if board[i][j] == player:
+            count = count + 1
+        elif board[i][j] == opponent:
+            if oppose == 1:
+                oppose = -1
+            elif oppose == 0:
+                oppose = 1
+            break
+        else:
+            break
+        j = j +1
+
+    line_val = createcalculate(oppose,count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value - line_val)
+
+    ###
+    # this is for '/'
+    ###
+    count = 0
+    oppose = 0
+    j = y
+    for i in range(x, -1, -1):
+        if j > board_size-1:
+            break
+        if board[i][j] == player:
+            count = count + 1
+        elif board[i][j] == opponent:
+            oppose = 1
+            break
+        else:
+            break
+        j = j + 1
+
+    j = y - 1
+    for i in range(x + 1, board_size):
+        if j<0:
+            break
+        if board[i][j] == player:
+            count = count + 1
+        elif board[i][j] == opponent:
+            if oppose == 1:
+                oppose = -1
+            elif oppose == 0:
+                oppose = 1
+            break
+        else:
+            break
+        j = j - 1
+
+    line_val = createcalculate(oppose, count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    ###
+    # Count for block 8 different calls
+    ###
+    count = 0
+    oppose = 1
+    for i in range(x-1, -1, -1):
+        if board[i][y] == opponent:
+            count = count + 1
+        elif board[i][y] == player:
+            oppose = -1 ###As we started from player, one end is already closed
+            break
+        else:
+            break
+
+    line_val = blockcalculate(oppose, count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    count = 0
+    oppose = 1
+    for i in range(x + 1, board_size):
+        if board[i][y] == opponent:
+            count = count + 1
+        elif board[i][y] == player:
+            oppose = -1
+            break
+        else:
+            break
+    line_val = blockcalculate(oppose,count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    ### Horizental
+    count = 0
+    oppose = 1
+    for j in range(y-1, -1, -1):
+        if board[x][j] == opponent:
+            count = count + 1
+        elif board[x][j] == player:
+            oppose = -1
+            break
+        else:
+            break
+    line_val = blockcalculate(oppose, count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    count = 0
+    oppose = 1
+    for j in range(y + 1, board_size):
+        if board[x][j] == opponent:
+            count = count + 1
+        elif board[x][j] == player:
+            oppose = -1
+            break
+        else:
+            break
+
+    line_val = blockcalculate(oppose,count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    ### For '\'
+    count = 0
+    oppose = 1
+    j = y-1
+    for i in range(x-1, -1, -1):
+        if j < 0:
+            break
+        if board[i][j] == opponent:
+            count = count + 1
+        elif board[i][j] == player:
+            oppose = -1
+            break
+        else:
+            break
+        j = j - 1
+    line_val = blockcalculate(oppose, count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    count = 0
+    oppose = 1
+    j = y + 1
+    for i in range(x + 1, board_size):
+        if j > board_size - 1:
+            break
+        if board[i][j] == opponent:
+            count = count + 1
+        elif board[i][j] == player:
+            oppose = -1
+            break
+        else:
+            break
+        j = j + 1
+
+    line_val = blockcalculate(oppose, count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    ###
+    # this is for '/'
+    ###
+    count = 0
+    oppose = 1
+    j = y+1
+    for i in range(x-1, -1, -1):
+        if j > board_size - 1:
+            break
+        if board[i][j] == opponent:
+            count = count + 1
+        elif board[i][j] == player:
+            oppose = -1
+            break
+        else:
+            break
+        j = j + 1
+    line_val = blockcalculate(oppose, count)
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    count = 0
+    oppose = 1
+    j = y - 1
+    for i in range(x + 1, board_size):
+        if j <0:
+            break
+        if board[i][j] == opponent:
+            count = count + 1
+        elif board[i][j] == player:
+            oppose = -1
+            break
+        else:
+            break
+        j = j - 1
+
+    line_val = blockcalculate(oppose, count)
+
+    if maximizingPlayer == True:
+        value = (value + line_val)
+    else:
+        value = (value -line_val)
+
+    # print (value)
+    return value
+
+###
+#Returns a board by adding symbol to that position in a board
+###
+def makeboard(some_board,position,symbol):
+    y = position[:1]
+    x = position[1:]
+    x = board_size - int(x)
+    y = ord(y) - 65
+    temp_board = [[] for i in range(board_size + 2)]
+    temp_board = deepcopy(some_board)
+    temp_board[x][y] = symbol
+    return temp_board
+
+def alphabeta(board,depth,alpha,beta,maximizingPlayer,parent,evalue,isWin):
+    global prev_alpha
+    global prev_beta
+    first_child = False
+    if str(alpha) == 'inf':
+        alpha_log = 'Infinity'
+    elif str(alpha) == '-inf':
+        alpha_log = '-Infinity'
+    else:
+        alpha_log = str(alpha)
+    if str(beta) == 'inf':
+        beta_log = 'Infinity'
+    elif str(beta) == '-inf':
+        beta_log = '-Infinity'
+    else:
+        beta_log = str(beta)
+
+    if depth == 0 or isTerminal(board) or isWin == True:
+        # prev_beta = beta
+        return evalue
+    if maximizingPlayer:
+        v = float("-inf")
+        v_log = '-Infinity'
+        children = all_possible_moves(board)
+        for child in children:
+            prev_alpha = alpha
+            child_board = [[] for i in range(board_size)]
+            if player_id == 1:
+                child_board = makeboard(board, child, 'b')
+            else:
+                child_board = makeboard(board, child, 'w')
+
+            ### Log Parent
+            log_file.write(parent + ',' + str(actual_depth - depth) + ',' + v_log + ',' + alpha_log + ',' + beta_log + '\n')
+
+            eval_value = int(evaluation_function(child_board, child, maximizingPlayer))
+            if eval_value >= 50000 or eval_value <= -50000:
+                alphabeta_val = int(alphabeta(child_board, depth - 1, alpha, beta, False, child, evalue + eval_value, True))
+            else:
+                alphabeta_val = int(alphabeta(child_board, depth - 1, alpha, beta, False, child, evalue + eval_value, isWin))
+
+            if alphabeta_val > v:
+                if first_child == False:  ## is not first child
+                    traverse_log.append(child + ',' + str(actual_depth - depth) + str(alphabeta_val))
+                    first_child = True
+                else:
+                    traverse_log[-1] = (child + ',' + str(actual_depth - depth) + ',' + str(alphabeta_val))
+            elif alphabeta_val == v:
+                log_instance = traverse_log[-1]
+                tie = log_instance.split(',')[0]
+                tie_list = []
+                tie_list.append(child)
+                tie_list.append(tie)
+                r = []
+                for x in sorted_nicely(tie_list):
+                    r.append(x)
+                traverse_log[-1] = (r[0] + ',' + str(actual_depth - depth) + ',' + str(alphabeta_val))
+
+            v = max(v, alphabeta_val)
+            v_log = str(v)
+            ### Log Child -- Either before if condition or after ??
+            if (actual_depth - depth + 1) == 1:
+                log_file.write(child + ',' + str(actual_depth - depth + 1) + ',' + str(alphabeta_val) + ',' + alpha_log + ',' +str(prev_beta) + '\n')
+            else:
+                log_file.write(child + ',' + str(actual_depth - depth + 1) + ',' + str(alphabeta_val) + ',' + alpha_log + ',' + beta_log + '\n')
+            # log_file.write(child + ',' + str(actual_depth - depth + 1) + ',' + str(alphabeta_val) + ',' + str(alpha) + ',' + str(beta) + '\n')
+            prev_beta = beta
+            prev_alpha = alpha
+            alpha = max(alpha,v)
+            alpha_log = str(alpha)
+            if beta <= alpha:
+                break
+        return v
+    else:
+        v = float("inf")
+        v_log = 'Infinity'
+        children = all_possible_moves(board)
+        for child in children:
+            prev_beta = beta
+            child_board = [[] for i in range(board_size)]
+            if player_id == 1:
+                child_board = makeboard(board, child, 'w')
+            else:
+                child_board = makeboard(board, child, 'b')
+
+            log_file.write(parent + ',' + str(actual_depth - depth) + ',' + v_log + ',' + alpha_log + ',' + beta_log + '\n')
+
+            eval_value = int(evaluation_function(child_board, child, maximizingPlayer))
+            if eval_value >= 50000 or eval_value <= -50000:
+                alphabeta_val = int(alphabeta(child_board, depth - 1, alpha, beta, True, child, evalue + eval_value, True))
+            else:
+                alphabeta_val = int(alphabeta(child_board, depth - 1, alpha, beta, True, child, evalue + eval_value, isWin))
+
+            if alphabeta_val < v:
+                if first_child == False:
+                    traverse_log.append(child + ',' + str(actual_depth - depth) + str(alphabeta_val))
+                    first_child = True
+                else:
+                    traverse_log[-1] = (child + ',' + str(actual_depth - depth) + ',' + str(alphabeta_val))
+            elif alphabeta_val == v:
+                log_instance = traverse_log[-1]
+                tie = log_instance.split(',')[0]
+                tie_list = []
+                tie_list.append(child)
+                tie_list.append(tie)
+                data = set(tie_list)
+                r = sorted(data,
+                           key=lambda item: (int(item.partition(' ')[0]) if item[0].isdigit() else float('inf'), item))
+                traverse_log[-1] = (r[0] + ',' + str(actual_depth - depth) + ',' + str(alphabeta_val))
+
+            v = min(v, alphabeta_val)
+            v_log = str(v)
+            ### Log Child
+            ### Prev child's alpha
+            if prev_alpha == float("-inf"):
+                temp_str = child + ',' + str(actual_depth - depth + 1) + ',' + str(alphabeta_val) + ',' + '-Infinity' + ',' + beta_log
+            else:
+                temp_str = child + ',' + str(actual_depth - depth + 1) + ',' + str(alphabeta_val)+','+str(prev_alpha)+','+beta_log
+
+            prev_alpha = alpha
+            log_file.write(temp_str + '\n')
+            prev_beta = beta
+            beta = min(beta,v)
+            beta_log = str(beta)
+            if beta <= alpha:
+                break
+        return v
+
+def minimax(board,depth,maximizingPlayer,parent,evalue,isWin):
+    first_child = False
+    if depth == 0 or isTerminal(board) or isWin == True:
+        return evalue
+    if maximizingPlayer:
+        bestValue = float("-inf")
+        children = all_possible_moves(board)
+        for child in children:
+            child_board = [[] for i in range(board_size)]
+            if player_id == 1:
+                child_board = makeboard(board,child,'b')
+            else:
+                child_board = makeboard(board,child,'w')
+            ### Log Parent
+            if bestValue == float("-inf"):
+                log_file.write(parent + ',' + str(actual_depth - depth) + ',' + '-Infinity' + '\n')
+            else:
+                log_file.write(parent+','+str(actual_depth - depth)+','+str(bestValue)+'\n')
+            eval_value = int(evaluation_function(child_board,child,maximizingPlayer))
+            if eval_value >= 50000 or eval_value <= -50000:
+                minimax_val = int(minimax(child_board, depth - 1, False, child, evalue + eval_value, True))
+            else:
+                minimax_val = int(minimax(child_board,depth-1,False,child,evalue+eval_value,isWin))
+
+            v =  minimax_val
+            if v > bestValue:
+                if first_child == False: ## is not first child
+                    traverse_log.append(child+','+str(actual_depth - depth)+str(v))
+                    first_child = True
+                else:
+                    traverse_log[-1] = (child+','+str(actual_depth - depth)+','+str(v))
+            elif v == bestValue:
+                log_instance = traverse_log[-1]
+                tie = log_instance.split(',')[0]
+                tie_list = []
+                tie_list.append(child)
+                tie_list.append(tie)
+                r=[]
+                for x in sorted_nicely(tie_list):
+                    r.append(x)
+                traverse_log[-1] = (r[0]+','+str(actual_depth - depth)+','+str(v))
+            bestValue = max(bestValue,v)
+            ### Log Child
+            log_file.write(child+','+str(actual_depth - depth+1)+','+str(v)+'\n')
+
+        return bestValue
+    else:
+        bestValue = float("inf")
+        children = all_possible_moves(board)
+        for child in children:
+            if player_id == 1: ### Opponent's turn
+                child_board = makeboard(board, child, 'w')
+            else:
+                child_board = makeboard(board, child, 'b')
+            ### Log parent
+            if bestValue == float("inf"):
+                log_file.write(parent + ',' + str(actual_depth - depth) + ',' + 'Infinity' + '\n')
+            else:
+                log_file.write(parent + ',' + str(actual_depth - depth) + ',' + str(bestValue) + '\n')
+            eval_value = int(evaluation_function(child_board, child,maximizingPlayer))
+            if eval_value >= 50000 or eval_value <= -50000:
+                minimax_val = int(minimax(child_board, depth - 1, True, child, evalue + eval_value, True))
+            else:
+                minimax_val = int(minimax(child_board, depth - 1, True,child,evalue+eval_value,isWin))
+
+            v = minimax_val
+            if v < bestValue:
+                if first_child == False:
+                    traverse_log.append(child + ',' + str(actual_depth - depth) + str(v))
+                    first_child = True
+                else:
+                    traverse_log[-1] = (child + ',' + str(actual_depth - depth) + ',' + str(v))
+            elif v == bestValue:
+                log_instance = traverse_log[-1]
+                tie = log_instance.split(',')[0]
+                tie_list = []
+                tie_list.append(child)
+                tie_list.append(tie)
+                data = set(tie_list)
+                r = sorted(data,
+                           key=lambda item: (int(item.partition(' ')[0]) if item[0].isdigit() else float('inf'), item))
+                traverse_log[-1] = (r[0] + ',' + str(actual_depth - depth) + ',' + str(v))
+            bestValue = min(bestValue, v)
+            ### Log Child
+            temp_str = child+','+str(actual_depth - depth+1)+','+str(v)
+            log_file.write(temp_str+'\n')
+        return bestValue
+
+def main():
+    # fname = 'C:\\Users\\ssahani\\Desktop\\AI\\HW1\\Testcase\\input_1.txt'
+    fopen = open(str(sys.argv[1]),'r')
+    global log_file
+    log_file = open('traverse_log.txt','w')
+    state_file = open('next_state.txt', 'w')
+
+    global board_size
+    global traverse_log
+    global player_id
+    global actual_depth
+    global prev_alpha
+    prev_alpha = float("-inf")
+    global prev_beta
+    prev_beta = float("inf")
+    task = int(fopen.readline())
+    player_id = int(fopen.readline())
+    actual_depth = int(fopen.readline())
+    board_size = int(fopen.readline())
+    traverse_log = []
+
+    board = [[] for i in range(board_size)]
+    index = 0
+    for line in fopen:
+        for word in line:
+            board[index].append(word)
+        board[index].pop()
+        index = index + 1
+
+    # possible_move = all_possible_moves(board)
+    if task == 3:
+        log_file.write('Move,Depth,Value,Alpha,Beta\n')
+        aplhabeta_val = alphabeta(board, actual_depth,float("-inf"),float("inf"),True,'root',0,False)
+
+        log_file.write('root,0,' + str(aplhabeta_val)+','+str(prev_alpha)+',Infinity\n')
+        # print traverse_log
+        if player_id == 2:
+            output = makeboard(board,traverse_log[0].split(',')[0],'w')
+        else:
+            output = makeboard(board, traverse_log[0].split(',')[0], 'b')
+        # print output
+        # print traverse_log
+        for i in range(board_size):
+            for j in range(board_size):
+                state_file.write(output[i][j])
+            state_file.write('\n')
+
+    else:
+        if task == 1: ## Greedy
+            actual_depth = 1
+
+        # traverse_log.append('root,0,-Infinity')
+        log_file.write('Move,Depth,Value\n')
+        minimax_val = (minimax(board, actual_depth, True,'root',0,False))
+        log_file.write('root,0,'+str(minimax_val))
+        log_file.write('\n')
+
+        ### add root in log with final value
+
+        if player_id == 2:
+            output = makeboard(board,traverse_log[0].split(',')[0],'w')
+        else:
+            output = makeboard(board, traverse_log[0].split(',')[0], 'b')
+        # print traverse_log
+        # print output
+        for i in range(board_size):
+            for j in range(board_size):
+                state_file.write(output[i][j])
+            state_file.write('\n')
+
+if __name__ == '__main__':
+    main()
