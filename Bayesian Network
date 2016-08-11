@@ -1,0 +1,196 @@
+import sys
+import itertools
+import math
+import os
+
+def construct():
+    global bn
+    global nodeDict
+    global query
+    fopen = open(str(sys.argv[1]), 'U')
+    m = int(fopen.readline()[:-1])
+    query = []
+    bn = []
+    nodeDict = {}
+
+    for i in range(0, m):
+        q = fopen.readline()[:-1]
+        q = q[2:]
+        q = q[:-1]
+        query.append(q)
+    isFirstLine = True
+    ### isFirstLine to get the first line of node
+    truthDict = {}
+    recent = ''
+    for line in fopen:
+        line = line.strip('\n')
+        if isFirstLine == True:
+            isFirstLine = False
+            nodeList = line.split('|')
+            if nodeList[0] not in bn:
+                bn.append(nodeList[0].strip())
+            ###Haven't checked whether it is already there in dictionary
+            if len(nodeList) > 1:
+                tempList = []
+                tempList.append(nodeList[1].strip())
+                nodeDict[nodeList[0].strip()] = tempList
+            else:
+                nodeDict[nodeList[0].strip()] = []
+            truthDict = {}
+            recent = nodeList[0].strip()
+        else:
+            if line == '***':
+                isFirstLine = True
+                temp = []
+                temp = nodeDict[recent]
+                temp.append(truthDict)
+            else:
+                values = line.split(' ')
+                keystring = ''
+                if len(values) > 1:
+                    for i in range(1, len(values)):
+                        keystring += values[i]
+                if keystring != '':
+                    truthDict[keystring] = values[0]
+                else:
+                    truthDict['+'] = values[0]
+    temp = []
+    temp = nodeDict[recent]
+    temp.append(truthDict)
+    nodeDict[recent] = temp
+
+def probability(variable,symbol,evidence):
+    value = nodeDict[variable]
+    symForTruthTable = ''
+    if type(value[0]) == dict:
+        ### No Parents
+        if symbol in value[0]:
+            return value[0][symbol]
+        else:
+            if symbol == '+':
+                tempsymbol = '-'
+            else:
+                tempsymbol = '+'
+            return (float(1) - float(value[0][tempsymbol]))
+    else:
+        parents = value[0]
+        parentList = parents.split(' ')
+        for p in parentList:
+            for eachitem in evidence:
+                if eachitem.split('=')[0].strip() == p:
+                    symForTruthTable += (eachitem.split('=')[1].strip())
+
+        if symbol == '+':
+            return value[1][symForTruthTable]
+        else:
+            return (float(1) - float(value[1][symForTruthTable]))
+
+def Enumerate_All(vars,e_all):
+    if not vars:
+        return 1.0
+    Y = vars[0]
+    sym = ''
+    flag = False
+    for eachitem in e_all:
+        if eachitem.split('=')[0].strip() == Y:
+            sym = eachitem.split('=')[1].strip()
+            flag = True
+            break
+    if flag == True:
+        prob = probability(Y,sym,e_all)
+        return (float(prob) * float(Enumerate_All(vars[1:],e_all)))
+
+    else:
+        tempstr = Y + ' = +'
+        poss_prob = probability(Y,'+',e_all+[tempstr])
+        poss_prob_val = float(poss_prob) * float(Enumerate_All(vars[1:],e_all+[tempstr]))
+        tempstr = Y + ' = -'
+        neg_prob = probability(Y,'-',e_all+[tempstr])
+        neg_prob_val = float(neg_prob) * float(Enumerate_All(vars[1:],e_all+[tempstr]))
+        return (poss_prob_val + neg_prob_val)
+
+def Enumeration_Ask(X,e,bn):
+    Q = {}
+    denominator = 0
+    temp = []
+    numerator = 0
+    leftQ = query[qindex].split('|')
+    for each in leftQ[0].split(','):
+        tempQuery = each.split('=')
+        temp.append(tempQuery[0].strip())
+        temp.append(tempQuery[1].strip())
+
+    for xi in X:
+        str_xi = ''
+        xiList = []
+        for each_xi in xi:
+            if str_xi == '':
+                str_xi += each_xi + ' = '
+            else:
+                str_xi += each_xi
+                if str_xi not in e:
+                    xiList.append(str_xi)
+                str_xi = ''
+            ### if xi = ['NightDefense = +', 'Infiltration = +'] enu_All wl be called foreach or at once's ?
+        Q[str(xi)] = Enumerate_All(bn,e+xiList)
+        denominator = denominator + Q[str(xi)]
+        if temp == xi:
+            numerator = Q[str(xi)]
+
+    return (numerator/denominator)
+
+def main():
+    global bn
+    global nodeDict
+    global query
+    global qindex
+    log_file = open('output.txt', 'w')
+    remove_chars = len(os.linesep)
+    construct()
+    qindex = -1
+    for q in query:
+        qindex = qindex + 1
+        leftQ = q.split('|')
+        e = ''
+        if len(leftQ) > 1:
+            e = leftQ[1].strip()
+        eList1 = e.split(',')
+        ### eList1 had space in its element
+        eList = []
+        for each in eList1:
+            eList.append(each.strip())
+        if e == '':
+            eList = []
+        iterable = ['+','-']
+        ### r is left-side of query
+        r = leftQ[0].split(',')
+        combination = list(itertools.product(iterable,repeat = len(r)))
+        keysymbol = ''
+        keyvar = ''
+        for eachitem in r:
+            itemlist = eachitem.split('=')
+            keyvar += itemlist[0].strip() + ','
+            keysymbol += itemlist[1].strip() + ','
+        keyvar = keyvar[:-1]
+        keysymbol = keysymbol[:-1]
+        Xlist = []
+
+        for eachitem in combination:
+            itemlist = []
+            for item in eachitem:
+                itemlist.append(item)
+            tempList = []
+            keyvarList = keyvar.split(',')
+            i = 0
+            for each in keyvarList:
+                tempList.append(each)
+                tempList.append(itemlist[i])
+                i = i + 1
+            Xlist.append(tempList)
+        # print Enumeration_Ask(Xlist,eList,bn)
+        result = format(Enumeration_Ask(Xlist,eList,bn), '.2f')
+        log_file.write(result + '\n')
+    log_file.truncate(log_file.tell() - remove_chars)
+
+if __name__ == '__main__':
+    main()
